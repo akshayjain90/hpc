@@ -172,12 +172,19 @@ int main( int argc, char *argv[])
   }
 
   qsort(recBuf, rbsSum, sizeof(int), compare);
- 
+  char buf[20];
+  sprintf(buf,"output%04d.txt",rank);
+  
+  FILE *outpF = fopen(buf,"w+");
+
   printf("\nProcess %d sorted numbers:\n ",rank);
   for(i=0 ;i<rbsSum; i++){
     printf("%d \n",recBuf[i]);
+    fprintf(outpF,"%d\n",recBuf[i]);
   }
 
+  
+  fclose(outpF);
   free(vec);
   MPI_Finalize();
   return 0;
