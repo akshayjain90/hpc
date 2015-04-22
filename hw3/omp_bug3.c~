@@ -50,14 +50,16 @@ for (i=0; i<N; i++)
       section = 1;
       for (i=0; i<N; i++)
         c[i] = a[i] * b[i];
-      print_results(c, tid, section);
+        print_results(c, tid, section);
+	printf("Thread %d done and synchronized.\n", tid); 
       }
     #pragma omp section
       {
       section = 2;
       for (i=0; i<N; i++)
         c[i] = a[i] + b[i];
-      print_results(c, tid, section);
+        print_results(c, tid, section);
+	printf("Thread %d done and synchronized.\n", tid); 
       }
 
     }  /* end of sections */
@@ -92,7 +94,7 @@ void print_results(float array[N], int tid, int section)
   } /*** end of critical ***/
 
   //#pragma omp barrier
-  printf("Thread %d done and synchronized.\n", tid); 
+  //printf("Thread %d done and synchronized.\n", tid); 
 
 }
   
