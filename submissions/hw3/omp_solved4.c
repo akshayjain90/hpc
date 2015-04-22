@@ -8,9 +8,7 @@
 
 /*
 Bug: the program seg faults. 
-There can be 2 possible reasons.(I am not sure which one it was)
-1. 4 * 1048*1048 double arrays on stack take up too much memory
-2. 2D arrays don't work in the same way as 1D arrays
+The possible reason is 4 * 1048*1048 double arrays on stack take up too much memory
 Whatever might have been the problem, it gets resolved by declaring and
 allocating a dynamically inside the parallel code. 
 */
