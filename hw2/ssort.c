@@ -25,16 +25,19 @@ int compare(const void *a, const void *b){
 
 int main( int argc, char *argv[])
 {
-  int rank, size;
+  int rank, size,sCount;
   int i, N;
   int *vec;
-  MPI_Status status;
+/* Number of random numbers per processor (this should be increased
+   * for actual tests or could be passed in through the command line */
+  N = atoi(argv[1]);
+  
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-  /* Number of random numbers per processor (this should be increased
-   * for actual tests or could be passed in through the command line */
-  N = atoi(argv[1]);
+  MPI_Status status;
+  MPI_Request *statusI;
+  statusI = calloc(2*size, sizeof(MPI_Request));
   int root =0;
   vec = calloc(N, sizeof(int));
   /* seed random number generator differently on every core */
@@ -94,6 +97,7 @@ int main( int argc, char *argv[])
   }
 
   MPI_Bcast(splitters, size, MPI_INT, root, MPI_COMM_WORLD);  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   int *sBucketSizes;
   int *rBucketSizes;
@@ -131,6 +135,8 @@ int main( int argc, char *argv[])
   for(i=0;i<size;i++){
     rbsSum +=rBucketSizes[i];
   }
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   recBuf = calloc(rbsSum,sizeof(int));
   count=0; 
@@ -138,10 +144,10 @@ int main( int argc, char *argv[])
   {
    for(i=0;i<size;i++){
     
-    MPI_Send(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD);
+    MPI_Isend(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD,&statusI[i*2]);
     printf("Trying to send %d integers from process %d to process %d\n",sBucketSizes[i],rank,i);
     count+=sBucketSizes[i];
-    MPI_Recv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &status);
+    MPI_Irecv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &statusI[i*2+1]);
     printf("Trying to recieve %d integers from process %d to process %d\n",rBucketSizes[i],rank,i);
     rCount+=rBucketSizes[i];
     }
@@ -150,18 +156,18 @@ int main( int argc, char *argv[])
   {
    for(i=0;i<size;i++){
     if(rank !=i){
-     MPI_Recv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &status);
+     MPI_Irecv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &statusI[i*2+1]);
      printf("Trying to recieve %d integers from process %d to process %d\n",rBucketSizes[i],rank,i);
      rCount+=rBucketSizes[i];
-     MPI_Send(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD);
+     MPI_Isend(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD,&statusI[i*2]);
      printf("Trying to send %d integers from process %d to process %d\n",sBucketSizes[i],rank,i);
      count+=sBucketSizes[i];
     }else{
        
-    MPI_Send(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD);
+    MPI_Isend(&vec[count], sBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD,&statusI[i*2]);
     printf("Trying to send %d integers from process %d to process %d\n",sBucketSizes[i],rank,i);
     count+=sBucketSizes[i];
-    MPI_Recv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &status);
+    MPI_Irecv(&recBuf[rCount], rBucketSizes[i], MPI_INT, i, tag, MPI_COMM_WORLD, &statusI[i*2+1]);
     printf("Trying to recieve %d integers from process %d to process %d\n",rBucketSizes[i],rank,i);
     rCount+=rBucketSizes[i];
     
@@ -171,6 +177,9 @@ int main( int argc, char *argv[])
 
   }
 
+  MPI_Waitall(2*size, statusI, MPI_STATUSES_IGNORE);
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Finalize();
   qsort(recBuf, rbsSum, sizeof(int), compare);
   char buf[20];
   sprintf(buf,"output%04d.txt",rank);
@@ -183,9 +192,16 @@ int main( int argc, char *argv[])
     fprintf(outpF,"%d\n",recBuf[i]);
   }
 
-  
+  if(rank ==0){
+   free(sE);
+  }
   fclose(outpF);
+  free(rBucketSizes);
+  free(sBucketSizes);
+  free(splitters);
+  free(sample);
   free(vec);
-  MPI_Finalize();
+  free(recBuf);
+  
   return 0;
 }
