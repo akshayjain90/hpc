@@ -11,10 +11,13 @@ double compute_residual(double *lu, int lN, double invhsq){
 	int i;
 	double tmp;
 	lres=0.0;
-	//#pragma omp for reduction(+:lres)
-	for (i = 1; i < lN; i++){
-		tmp = ((2.0*lu[i] - lu[i-1] - lu[i+1]) * invhsq - 1);
-		lres += tmp * tmp;
+	#pragma omp parallel			
+	{
+		#pragma omp for reduction(+:lres)
+		for (i = 1; i < lN; i++){
+			tmp = ((2.0*lu[i] - lu[i-1] - lu[i+1]) * invhsq - 1);
+			lres += tmp * tmp;
+		}
 	}	
 	return sqrt(lres);
 }
