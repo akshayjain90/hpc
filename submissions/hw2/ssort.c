@@ -4,20 +4,7 @@
 #include <unistd.h>
 #include <mpi.h>
 #include <stdlib.h>
-
-
-static int compare2(const void *a, const void *b)
-{
-  int *da = (int *)a;
-  int *db = (int *)b;
-
-  if (*da > *db)
-    return 1;
-  else if (*da < *db)
-    return -1;
-  else
-    return 0;
-}
+#include "util.h"
 
 int compare(const void *a, const void *b){
   return ( *(int*)a - *(int*)b );
@@ -49,7 +36,9 @@ int main( int argc, char *argv[])
   }
 //  printf("rank: %d, first entry: %d\n", rank, vec[0]);
   
-
+  //Start time calculation
+  timestamp_type time1, time2;
+  get_timestamp(&time1);
   /* sort locally */
   qsort(vec, N, sizeof(int), compare);
   //printf("Initial local sorted numbers for process %d is :",rank);
@@ -178,11 +167,16 @@ int main( int argc, char *argv[])
   }
 
   MPI_Waitall(2*size, statusI, MPI_STATUSES_IGNORE);
-  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
   qsort(recBuf, rbsSum, sizeof(int), compare);
-  char buf[20];
-  sprintf(buf,"output%04d.txt",rank);
+  
+  get_timestamp(&time2);
+  double elapsed = timestamp_diff_in_seconds(time1,time2);
+  if (0 == rank) {
+    printf("Time elapsed for N=%d is %f seconds.\n",N, elapsed);
+  }
+  char buf[30];
+  sprintf(buf,"output%7d_%04d.txt",N,rank);
   
   FILE *outpF = fopen(buf,"w+");
 
