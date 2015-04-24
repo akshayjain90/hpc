@@ -261,7 +261,70 @@ int main(int argc, char *argv[])
   {
     CALL_CL_SAFE(clEnqueueNDRangeKernel(queue, knl, 2, NULL,
           global_size, local_size, 0, NULL, NULL));
+
+
+   #ifdef NON_OPTIMIZED
+  CALL_CL_SAFE(clEnqueueReadBuffer(
+        queue, buf_congray, /*blocking*/ CL_TRUE, /*offset*/ 0,
+        xsize * ysize * sizeof(float), congray_cl,
+        0, NULL, NULL));
+#else
+  buffer_origin[0] = 3*sizeof(float);
+  buffer_origin[1] = 3;
+  buffer_origin[2] = 0;
+
+  host_origin[0] = 3*sizeof(float);
+  host_origin[1] = 3;
+  host_origin[2] = 0;
+
+  region[0] = (xsize-paddingPixels)*sizeof(float);
+  region[1] = (ysize-paddingPixels);
+  region[2] = 1;
+
+  clEnqueueReadBufferRect(queue, buf_congray, CL_TRUE,
+      buffer_origin, host_origin, region,
+      deviceWidth*sizeof(float), 0, xsize*sizeof(float), 0,
+      congray_cl, 0, NULL, NULL);
+#endif
+
+  // --------------------------------------------------------------------------
+  // output OpenCL filtered image
+  // --------------------------------------------------------------------------
+  printf("Writing OpenCL filtered image\n");
+  for(int n = 0; n < xsize*ysize; ++n)
+    r[n] = g[n] = b[n] = (int)(congray_cl[n] * rgb_max);
+
+  char buf[20];
+  sprintf(buf,"output%04d_cl.ppm",loop);
+  error = ppma_write(buf, xsize, ysize, r, g, b);
+  if(error) { fprintf(stderr, "error writing image"); abort(); }
+
+
+  ppma_read(buf, &xsize, &ysize, &rgb_max, &r, &g, &b);
+   for(int n = 0; n < xsize*ysize; ++n)
+    gray[n] = (0.21f*r[n])/rgb_max + (0.72f*g[n])/rgb_max + (0.07f*b[n])/rgb_max;
+
+  #ifdef NON_OPTIMIZED
+  CALL_CL_SAFE(clEnqueueWriteBuffer(
+        queue, buf_gray, /*blocking*/ CL_TRUE, /*offset*/ 0,
+        deviceDataSize, gray, 0, NULL, NULL));
+#else
+  size_t buffer_origin[3] = {0,0,0};
+  size_t host_origin[3] = {0,0,0};
+  size_t region[3] = {deviceWidth*sizeof(float), ysize, 1};
+  clEnqueueWriteBufferRect(queue, buf_gray, CL_TRUE,
+                           buffer_origin, host_origin, region,
+                           deviceWidth*sizeof(float), 0, xsize*sizeof(float), 0,
+                           gray, 0, NULL, NULL);
+#endif
+
+  CALL_CL_SAFE(clEnqueueWriteBuffer(
+        queue, buf_filter, /*blocking*/ CL_TRUE, /*offset*/ 0,
+        FILTER_WIDTH*FILTER_WIDTH*sizeof(float), filter, 0, NULL, NULL));
+  	
   }
+
+
   CALL_CL_SAFE(clFinish(queue));
   get_timestamp(&toc);
 
