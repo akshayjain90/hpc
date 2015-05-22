@@ -15,4 +15,4 @@ clean:
 	rm ${EXECS}
 	rm input*
 	rm output*
-	rm clusterData*
+	rm clusterData* 
